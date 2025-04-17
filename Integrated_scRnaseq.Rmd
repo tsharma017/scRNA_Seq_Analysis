@@ -1,0 +1,471 @@
+---
+title: "Untitled"
+output:
+  pdf_document: default
+  html_document: default
+date: "2025-04-16"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r}
+
+# Set the working directory
+setwd("/Users/tejsharma/Library/CloudStorage/Box-Box/Dr. Sharma/Single_cell_DMSO:LnCaP")
+```
+
+```{r}
+# Update BiocManager and check Bioconductor version
+BiocManager::install(version = "3.18")
+BiocManager::valid()
+
+```
+
+
+
+```{r}
+
+# Function to install and load CRAN and Bioconductor packages
+install_and_load <- function(cran_packages = NULL, bioc_packages = NULL) {
+  if (!is.null(cran_packages)) {
+    for (pkg in cran_packages) {
+      if (!requireNamespace(pkg, quietly = TRUE)) {
+        install.packages(pkg, dependencies = TRUE)
+      }
+      library(pkg, character.only = TRUE, quietly = TRUE)
+    }
+  }
+  
+  if (!is.null(bioc_packages)) {
+    if (!requireNamespace("BiocManager", quietly = TRUE)) {
+      install.packages("BiocManager")
+    }
+    for (pkg in bioc_packages) {
+      if (!requireNamespace(pkg, quietly = TRUE)) {
+        BiocManager::install(pkg, ask = FALSE)
+      }
+      library(pkg, character.only = TRUE, quietly = TRUE)
+    }
+  }
+}
+
+# Define package lists
+cran_packages <- c(
+  "readr", "readxl", "tidyr", "dplyr", "edgeR", "plyr", "pathview", "tidyverse", 
+  "tidygraph", "ggraph", "igraph", "GSEABase", "magrittr", "AnnotationDbi", 
+  "Biostrings", "ggplot2", "pheatmap", "org.Hs.eg.db", "reshape", "reshape2", 
+  "grid", "gridExtra", "wesanderson", "GOplot", "plotly", "clusterProfiler", 
+  "RColorBrewer", "GSVA", "survminer", "ggVennDiagram", "colorspace", 
+  "VennDiagram", "msigdbr", "ggrepel", "ggridges", "cowplot", "netgsa", "graphite", "Seurat", "Signac", "dplyr", "ggplot2", "hdf5r"
+)
+
+install.packages("readxl", dependencies = TRUE)
+
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install(c("EnsDb.Hsapiens.v86", "GenomeInfoDb", "BSgenome.Hsapiens.UCSC.hg38"))
+
+install.packages("BiocManager")
+BiocManager::install("glmGamPoi")  # Run this once
+
+library(future)
+options(future.globals.maxSize = 2000 * 1024^2)  # 2GB memory limit
+```
+
+```{r}
+#library(readxl)
+library(plyr)
+library(pathview)
+library(tidyverse)
+library(tidygraph)
+library(ggraph)
+library(igraph)
+library(GSEABase)
+library(magrittr)
+library(AnnotationDbi)
+library(Biostrings)
+library(pheatmap)
+library(org.Hs.eg.db)
+library(reshape)
+library(reshape2)
+library(grid)
+library(gridExtra)
+library(wesanderson)
+library(GOplot)
+library(plotly)
+library(clusterProfiler)
+library(RColorBrewer)
+library(GSVA)
+library(survminer)
+library(ggVennDiagram)
+library(colorspace)
+library(VennDiagram)
+library(msigdbr)
+library(ggrepel)
+library(ggridges)
+library(cowplot)
+#library(netgsa)
+library(graphite)
+library(EnsDb.Hsapiens.v75)
+library(Homo.sapiens)
+library(Seurat)
+library(Signac)
+```
+
+
+
+
+```{r}
+# Load the first data set: LNCaP_DMSO
+
+LNCaP_DMSO <- Read10X_h5("/Users/tejsharma/Library/CloudStorage/Box-Box/Dr. Sharma/Single_cell_DMSO:LnCaP/39_filtered_feature_bc_matrix.h5")
+
+# Create a Seurate objectfor the first dataset (threshold for genes present at least 3 cells, and for cells that express at 200 genes)
+LNCaP_DMSO <- CreateSeuratObject(counts = LNCaP_DMSO, project = "LNCap_DMSO", min.cells = 3, min.features = 200)
+
+# Calculate the percent of mitochondrial genes in the dataset
+
+LNCaP_DMSO <- PercentageFeatureSet(LNCaP_DMSO, pattern = "^MT-", col.name = "percent.mt")
+
+# Create a Violin plot to visualize QC metrics
+
+# nfeature: Unique genes detected in a cell, ncount: unique molecules detected in a cell, percent.mt: % of mitochondrial gene percent
+
+VlnPlot(LNCaP_DMSO, features = c("nFeature_RNA", "nCount_RNA", "percent.mt", ncol = 3))
+
+# Based on Vlion plot, filter our any outlier cells
+
+LNCaP_DMSO <- subset(LNCaP_DMSO, subset=nFeature_RNA < 9500 & nCount_RNA < 75000 & percent.mt < 15)
+
+# This command is to view the metadata for this object 
+View(LNCaP_DMSO@meta.data)
+
+# Displays infromations about your object
+
+class(LNCaP_DMSO[['RNA']])
+```
+```{r}
+# LNCaP_Enza_48hrs
+
+LNCaP_Enza_48hrs <- Read10X_h5("/Users/tejsharma/Library/CloudStorage/Box-Box/Dr. Sharma/Single_cell_DMSO:LnCaP/40_filtered_feature_bc_matrix.h5")
+
+LNCaP_Enza_48hrs <- CreateSeuratObject(counts = LNCaP_Enza_48hrs, project = "LNCaP_Enza_48hrs",
+                                       min.cells = 3, min.features = 200)
+
+LNCaP_Enza_48hrs <- PercentageFeatureSet(LNCaP_Enza_48hrs, pattern = "^MT-", col.name = "percent.mt")
+
+VlnPlot(LNCaP_Enza_48hrs, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+
+LNCaP_Enza_48hrs <- subset(LNCaP_Enza_48hrs, subset = nFeature_RNA < 8000 &
+                             nCount_RNA < 45000 & percent.mt < 15)
+
+View(LNCaP_Enza_48hrs@meta.data)
+
+class(LNCaP_Enza_48hrs[["RNA"]])
+LNCaP_Enza_48hrs
+```
+```{r}
+# LNCaP_Res_A
+
+LNCaP_Res_A <- Read10X_h5("/Users/tejsharma/Library/CloudStorage/Box-Box/Dr. Sharma/Single_cell_DMSO:LnCaP/41_filtered_feature_bc_matrix.h5")
+
+LNCaP_Res_A <- CreateSeuratObject(counts = LNCaP_Res_A, project = "LNCaP_Res_A",
+                                  min.cells = 3, min.features = 200)
+
+LNCaP_Res_A <- PercentageFeatureSet(LNCaP_Res_A, pattern = "^MT-", col.name = "percent.mt")
+
+VlnPlot(LNCaP_Res_A, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+
+LNCaP_Res_A <- subset(LNCaP_Res_A, subset = nFeature_RNA < 7000 &
+                        nCount_RNA < 35000 & percent.mt < 15)
+
+View(LNCaP_Res_A@meta.data)
+
+class(LNCaP_Res_A[["RNA"]])
+LNCaP_Res_A
+
+```
+
+```{r}
+# LNCaP_Res_B
+
+LNCaP_Res_B <- Read10X_h5("/Users/tejsharma/Library/CloudStorage/Box-Box/Dr. Sharma/Single_cell_DMSO:LnCaP/42_filtered_feature_bc_matrix.h5")
+
+LNCaP_Res_B <- CreateSeuratObject(counts = LNCaP_Res_B, project = "LNCaP_Res_B",
+                                  min.cells = 3, min.features = 200)
+
+LNCaP_Res_B <- PercentageFeatureSet(LNCaP_Res_B, pattern = "^MT-", col.name = "percent.mt")
+
+VlnPlot(LNCaP_Res_B, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+
+LNCaP_Res_B <- subset(LNCaP_Res_B, subset = nFeature_RNA < 8000 &
+                        nCount_RNA < 45000 & percent.mt < 20)
+
+View(LNCaP_Res_B@meta.data)
+
+class(LNCaP_Res_B[["RNA"]])
+LNCaP_Res_B
+
+```
+```{r}
+# Merge all four datasets into one objects for integrted analysis
+
+LNCaP_merge <- merge(x = LNCaP_DMSO,
+                     y = list(LNCaP_Enza_48hrs, LNCaP_Res_A, LNCaP_Res_B))
+
+# View metadata, get information about the merged object
+View(LNCaP_merge@meta.data)
+class(LNCaP_merge[["RNA"]])
+LNCaP_merge
+
+
+# ONLY USE THIS COMMAND IF YOU WISH TO REMOVE THE INDIVIDUAL OBJECTS AND KEEP THE MERGED ONE!!!
+# rm(LNCaP_DMSO, LNCaP_Enza_48hrs, LNCaP_Res_A, LNCaP_Res_B)
+
+# Normalize the combined data 
+
+LNCaP_merge <- NormalizeData(LNCaP_merge)
+
+# Find the variable features for the layers counts 
+
+LNCaP_merge <- FindVariableFeatures(LNCaP_merge, selection.method = "dispersion")
+
+# Plot the variable features
+top10 <- head(VariableFeatures(LNCaP_merge), 10)
+
+# Add AR and PBX1 if they’re not already included
+custom_genes <- unique(c(top10, "AR", "PBX1"))
+```
+
+```{r}
+VariableFeaturePlot(LNCaP_merge)
+LabelPoints(plot = plot, points = custom_genes, repel = TRUE) +
+  labs(x = "Average Expression", y = "Dispersion (Scaled)")
+
+```
+
+```{r}
+# Get top 10 variable genes
+top10 <- head(VariableFeatures(LNCaP_merge), 10)
+
+# Add AR and PBX1 if they’re not already included
+custom_genes <- unique(c(top10, "AR", "PBX1"))
+
+# Plot with labels
+plot <- VariableFeaturePlot(LNCaP_merge)
+LabelPoints(plot = plot, points = custom_genes, repel = TRUE) +
+  labs(x = "Average Expression", y = "Dispersion (Scaled)")
+
+hvf_info <- HVFInfo(LNCaP_merge)
+head(hvf_info)
+
+hvf_info$gene <- rownames(hvf_info)
+
+# Sort by standardized variance (descending)
+hvf_info <- hvf_info[order(hvf_info$mvp.dispersion, decreasing = TRUE), ]
+
+# View the top 10 highly variable genes
+head(hvf_info, 10)
+
+
+```
+
+```{r}
+# Linear transformation (Scaling) of the data 
+LNCaP_merge <- ScaleData(LNCaP_merge)
+
+# Perform PCA (a liner dimensional reduction) of the data
+
+LNCaP_merge <- RunPCA(LNCaP_merge)
+
+# Use an Elbow plot of the PCs(principal components) to determine the PC cutoff
+
+ElbowPlot(LNCaP_merge, ndims = 40)
+
+# Anchor-based RPCA integration (method=RPCAIntegration) 
+#LNCaP_merge <- IntegrateLayers(object = LNCaP_merge, method = Seurat::RPCAIntegration, 
+#                               orig.reduction = "pca", new.reduction = "rpca", 
+#                              verbose = FALSE) 
+```
+
+
+
+```{r}
+# List individual Seurat objects
+LNCaP_list <- list(LNCaP_DMSO, LNCaP_Enza_48hrs, LNCaP_Res_A, LNCaP_Res_B)
+
+# Normalize with SCTransform (NormalizationData + FindVariableFeatures)
+LNCaP_list <- lapply(LNCaP_list, SCTransform, verbose = FALSE)
+
+# Feature selection 
+features <- SelectIntegrationFeatures(object.list = LNCaP_list, nfeatures = 3000)
+
+# Prep for integration
+
+LNCaP_list <- PrepSCTIntegration(object.list = LNCaP_list, anchor.features = features)
+
+
+# PCA
+LNCaP_list <- lapply(LNCaP_list, RunPCA, features = features)
+
+# Find anchors using RPCA
+
+anchors <- FindIntegrationAnchors(object.list = LNCaP_list,
+                                  normalization.method = "SCT",
+                                  anchor.features = features,
+                                  reduction = "rpca")
+# Integrate the datasets
+
+LNCaP_merge <- IntegrateData(anchorset = anchors, normalization.method = "SCT")
+```
+
+
+```{r}
+# Linear transformation (Scaling) of the data 
+LNCaP_merge <- ScaleData(LNCaP_merge)
+
+# Perform PCA (a liner dimensional reduction) of the data
+
+LNCaP_merge <- RunPCA(LNCaP_merge)
+
+# Use an Elbow plot of the PCs(principal components) to determine the PC cutoff
+
+ElbowPlot(LNCaP_merge, ndims = 40)
+
+
+# Constructs Shared Nearest Neighbor (SNN) Graph: uses first 30 PCs as cutoff
+LNCaP_merge <- FindNeighbors(LNCaP_merge, reduction = "pca", dims = 1:30)
+
+# A modularity optimization that clusters the cells using the SNN
+LNCaP_merge <- FindClusters(LNCaP_merge, resolution = 0.8, cluster.name = "rpca_clusters")
+
+# Generates a UMAP of the integrated data
+LNCaP_merge <- RunUMAP(LNCaP_merge, reduction = "pca", dims = 1:30, reduction.name = "umap_rpca")
+
+# To view the metadata following clustering
+View(LNCaP_merge@meta.data) 
+
+```
+
+```{r}
+# Plots the UMAP with all the integrated data, showing the clusters shared across datasets
+DimPlot(LNCaP_merge, reduction = "umap_rpca", group.by = "rpca_clusters") 
+
+# Groups cells in the UMAP by dataset (will show how well the datasets were integrated)
+DimPlot(LNCaP_merge, reduction = "umap_rpca", group.by = "orig.ident") + ggtitle("rpca_integrated") 
+
+# Splits UMAP by dataset (split by condition: DMSO, Enza48hrs, ResA, ResB) but shows shared clusters
+DimPlot(LNCaP_merge, reduction = "umap_rpca", split.by = "orig.ident")
+
+# Does the same as above, but organizes into 2 columns (easier to size)
+DimPlot(LNCaP_merge, reduction = "umap_rpca", split.by = "orig.ident", ncol = 2)
+
+```
+
+```{r}
+# Creates feature plot for PBX1 expression acros each dataset (projected onto the UMAP)
+
+FeaturePlot(LNCaP_merge, reduction = "umap_rpca", split.by = "orig.ident", features = c("PBX1"),             cols = c('lightgrey', 'red')) & theme(legend.position = "right")
+
+# Creates the same for AR expression
+FeaturePlot(LNCaP_merge, reduction = "umap_rpca", split.by = "orig.ident", 
+            features=c("AR"),
+            cols = c('lightgrey', 'red')) & theme(legend.position = "right")
+
+# Creates a Violin plot of PBX1 expression for each cluster across each dataset
+VlnPlot(LNCaP_merge, features = c("PBX1"), split.by = "orig.ident", log = TRUE)
+
+VlnPlot(LNCaP_merge, features = c("AR"), split.by = "orig.ident", log = TRUE)
+
+```
+```{r}
+# Run differential gene expression for each cluster vs. all others
+cluster_markers <- FindAllMarkers(LNCaP_merge,
+                                  only.pos = TRUE,
+                                  min.pct = 0.25,
+                                  logfc.threshold = 0.25,
+                                  test.use = "wilcox")
+
+# View top 5 markers per cluster
+cluster_top5 <- cluster_markers %>% 
+  group_by(cluster) %>% 
+  top_n(n = 5, wt = avg_log2FC)
+
+# Optional: Save to CSV
+write.csv(cluster_markers, "cluster_markers.csv")
+```
+```{r}
+# Visualize AR and PBX1 on UMAP
+FeaturePlot(LNCaP_merge, features = c("AR", "PBX1"), reduction = "umap_rpca", split.by = "orig.ident")
+
+# Violin plot of expression across clusters and conditions
+VlnPlot(LNCaP_merge, features = c("AR", "PBX1"), split.by = "orig.ident", pt.size = 0, log = TRUE, ncol = 2)
+
+```
+```{r}
+# Add cluster identities to metadata if not already present
+LNCaP_merge$cluster_id <- Idents(LNCaP_merge)
+LNCaP_merge$sample <- LNCaP_merge$orig.ident
+
+# Calculate proportions
+prop_table <- prop.table(table(LNCaP_merge$sample, LNCaP_merge$cluster_id), margin = 1)
+
+# Convert to data frame for plotting
+prop_df <- as.data.frame(prop_table)
+colnames(prop_df) <- c("Sample", "Cluster", "Proportion")
+
+# Plot as stacked bar chart
+library(ggplot2)
+ggplot(prop_df, aes(x = Sample, y = Proportion, fill = Cluster)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Cluster Proportions Across Samples", y = "Proportion of Cells", x = "") +
+  theme_minimal()
+
+
+
+```
+```{r}
+#JoinLayers allows for smoother downstream analysis(combines counts and data layers for each dataset)
+# Set default assay to RNA — required before using JoinLayers
+DefaultAssay(LNCaP_merge) <- "RNA"
+
+# Check current layers before joining
+Layers(LNCaP_merge[["RNA"]])
+# Should show:
+# "counts.LNCaP_DMSO" "counts.LNCaP_Enza_48hrs" "counts.LNCaP_Res_A" "counts.LNCaP_Res_B"
+
+# Join the layers into a single counts layer
+LNCaP_merge <- JoinLayers(LNCaP_merge)
+
+# Confirm the unified layer now exists
+Layers(LNCaP_merge[["RNA"]])
+# Should now show:
+# "counts"
+
+LNCaP_merge <- NormalizeData(LNCaP_merge)
+
+#Box plots alone
+#install.packages("SCpubr")
+#This command will not work unless you run JoinLayers first
+library(SCpubr)
+SCpubr::do_BoxPlot(sample = LNCaP_merge,
+                   feature = "PBX1",
+                   plot.title = "PBX1 Expression",
+                   split.by = "orig.ident",	
+                   ylab = "Normalized Expression Level",
+                   legend.position = "right")
+
+SCpubr::do_BoxPlot(sample = LNCaP_merge,
+                   feature = "AR",
+                   plot.title = "AR Expression",
+                   split.by = "orig.ident",	
+                   ylab = "Normalized Expression Level",
+                   legend.position = "right")
+
+
+```
