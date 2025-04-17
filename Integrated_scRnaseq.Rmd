@@ -1,5 +1,5 @@
 ---
-title: "Untitled"
+title: "SingleCell"
 output:
   pdf_document: default
   html_document: default
@@ -15,7 +15,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r}
 
 # Set the working directory
-setwd("/Users/tejsharma/Library/CloudStorage/Box-Box/Dr. Sharma/Single_cell_DMSO:LnCaP")
+setwd("Dr. Sharma/Single_cell_DMSO:LnCaP")
 ```
 
 ```{r}
